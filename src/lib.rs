@@ -279,7 +279,7 @@ mod tests {
             bop_count: &mut bop_count,
             drop_count: &mut drop_count,
         };
-        let mut obj = SizedDstA8::<dyn Bop, 20>::new(test);
+        let mut obj = SizedDstNative::<dyn Bop, 20>::new(test);
         obj.bop();
         obj.bop();
         drop(obj);
