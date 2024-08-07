@@ -11,6 +11,8 @@ use core::{
 
 use aligned::{Aligned, Alignment};
 
+pub use aligned::{A1, A16, A2, A32, A4, A64, A8};
+
 #[repr(C)]
 struct StackObjectAlign<Dyn: ?Sized + Pointee, A: Alignment, const N: usize> {
     metadata: <Dyn as Pointee>::Metadata,
@@ -33,29 +35,41 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> StackObjectAlign<Dyn, A, N> {
             );
         }
 
+        // SAFETY:
+        // - `val_size` is the size of `value`, as expected by the function.
+        // - Our assertions made sure that `value` fits in `self.obj_bytes`, and its alignment
+        //   requirement does not extracted that of `self.obj_bytes`.
+        // - We call `mem::forget` immediately after to prevent double-free.
+        let out = unsafe { Self::from_dyn(&value, size_of::<T>()) };
+        core::mem::forget(value);
+        out
+    }
+
+    /// SAFETY:
+    /// - `val_size` must be the size of the object `value` points to.
+    /// - `self.obj_bytes` must be at least `val_size` bytes long.
+    /// - `value`'s alignment requirements must not be more strict than `self.obj_bytes`.
+    /// - `mem::forget` must be called on the `value` object after this call.
+    unsafe fn from_dyn(value: &Dyn, val_size: usize) -> Self {
         // The metadata comes from a fat Dyn pointer pointing to `value`. We can use the metadata
         // to reconstruct the fat Dyn pointer in the future.
-        let metadata = core::ptr::metadata(&value as &Dyn as *const Dyn);
+        let metadata = core::ptr::metadata(value as *const Dyn);
 
         let mut obj_bytes = Aligned([MaybeUninit::uninit(); N]);
         // Move `value` into `obj_bytes`
         //
         // SAFETY:
-        // - `value` is of type T, so it must be valid for reads of size_of::<T>.
-        // - We asserted that `obj_bytes` is at least size_of::<T> bytes, and since its type is
-        //   MaybeUninit<u8>, any bit pattern is valid.
-        // - We asserted that the alignment of `obj_bytes` is at least as strict as the alignment
-        //   of T, so the newly written instance of T must be properly aligned.
+        // - `value` and `self.obj_bytes` are at least `val_size` bytes, so the copy is valid.
+        // - `value`'s alignment is not more strict than `self.obj_bytes`, so the copied `value`
+        //   will always be well-aligned.
         // - `value` and `obj_bytes` are separate variables, so they can't overlap.
         unsafe {
             copy_nonoverlapping(
-                &value as *const T as *const MaybeUninit<u8>,
+                value as *const Dyn as *const MaybeUninit<u8>,
                 obj_bytes.as_mut_ptr(),
-                size_of::<T>(),
+                val_size,
             )
         };
-        // The value is now owned by the object, so we shouldn't drop it
-        core::mem::forget(value);
 
         StackObjectAlign {
             metadata,
@@ -112,15 +126,13 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> DerefMut for StackObjectAlign<Dy
     }
 }
 
-pub type StackObjectA1<Dyn, const N: usize> = StackObjectAlign<Dyn, aligned::A1, N>;
-pub type StackObjectA2<Dyn, const N: usize> = StackObjectAlign<Dyn, aligned::A2, N>;
-pub type StackObjectA4<Dyn, const N: usize> = StackObjectAlign<Dyn, aligned::A4, N>;
-pub type StackObjectA8<Dyn, const N: usize> = StackObjectAlign<Dyn, aligned::A8, N>;
+pub type StackObjectA1<Dyn, const N: usize> = StackObjectAlign<Dyn, A1, N>;
+pub type StackObjectA2<Dyn, const N: usize> = StackObjectAlign<Dyn, A2, N>;
+pub type StackObjectA4<Dyn, const N: usize> = StackObjectAlign<Dyn, A4, N>;
+pub type StackObjectA8<Dyn, const N: usize> = StackObjectAlign<Dyn, A8, N>;
 
 #[cfg(test)]
 mod tests {
-    use std::any::Any;
-
     use static_assertions::{assert_impl_all, assert_not_impl_any};
 
     use super::*;
@@ -164,44 +176,55 @@ mod tests {
         assert!(size_of_val(&obj.obj_bytes) >= 2);
     }
 
-    #[derive(Default)]
-    struct Test {
-        bop_count: u32,
-        drop_count: u32,
+    struct Test<'a> {
+        bop_count: &'a mut u32,
+        drop_count: &'a mut u32,
     }
 
-    trait Bop: Any {
+    trait Bop {
         fn bop(&mut self);
-        fn as_any(&self) -> &dyn Any;
     }
 
-    impl Bop for Test {
+    impl<'a> Bop for Test<'a> {
         fn bop(&mut self) {
-            self.bop_count += 1;
-        }
-
-        fn as_any(&self) -> &dyn Any {
-            self
+            *self.bop_count += 1;
         }
     }
 
-    impl Drop for Test {
+    impl<'a> Drop for Test<'a> {
         fn drop(&mut self) {
-            self.drop_count += 1;
+            *self.drop_count += 1;
         }
     }
 
     #[test]
     fn custom_trait_obj() {
-        let test = Test::default();
-        let mut obj = StackObjectA4::<dyn Bop, 10>::new(test);
+        let mut bop_count = 0;
+        let mut drop_count = 0;
+        let test = Test {
+            bop_count: &mut bop_count,
+            drop_count: &mut drop_count,
+        };
+        let mut obj = StackObjectA8::<dyn Bop, 20>::new(test);
         obj.bop();
         obj.bop();
+        drop(obj);
 
-        let test_ref = obj.as_any().downcast_ref::<Test>().unwrap();
         // We bopped twice
-        assert_eq!(test_ref.bop_count, 2);
-        // Since the object is still live, we should not have called `drop` at all
-        assert_eq!(test_ref.drop_count, 0);
+        assert_eq!(bop_count, 2);
+        // Should have only dropped once
+        assert_eq!(drop_count, 1);
+    }
+
+    #[test]
+    fn slice() {
+        let mut obj = StackObjectA1::<[u8], 4>::new([b'a', b'b']);
+        assert_eq!(obj.deref(), b"ab");
+
+        obj = StackObjectA1::<[u8], 4>::new([b'a', b'b', b'c', b'd']);
+        assert_eq!(obj.deref(), b"abcd");
+
+        obj = StackObjectA1::<[u8], 4>::new([]);
+        assert_eq!(obj.deref(), b"");
     }
 }
