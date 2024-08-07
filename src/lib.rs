@@ -14,7 +14,7 @@ use aligned::{Aligned, Alignment};
 pub use aligned::{A1, A16, A2, A32, A4, A64, A8};
 
 #[repr(C)]
-struct StackObjectAlign<Dyn: ?Sized + Pointee, A: Alignment, const N: usize> {
+pub struct SizedDst<Dyn: ?Sized + Pointee, A: Alignment, const N: usize> {
     metadata: <Dyn as Pointee>::Metadata,
     obj_bytes: Aligned<A, [MaybeUninit<u8>; N]>,
     // Technically we own an instance of Dyn, so we need this for `Send` and `Sync` to be
@@ -22,7 +22,7 @@ struct StackObjectAlign<Dyn: ?Sized + Pointee, A: Alignment, const N: usize> {
     _phantom: PhantomData<Dyn>,
 }
 
-impl<Dyn: ?Sized, A: Alignment, const N: usize> StackObjectAlign<Dyn, A, N> {
+impl<Dyn: ?Sized, A: Alignment, const N: usize> SizedDst<Dyn, A, N> {
     pub fn new<T: Unsize<Dyn>>(value: T) -> Self {
         const {
             assert!(
@@ -71,7 +71,7 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> StackObjectAlign<Dyn, A, N> {
             )
         };
 
-        StackObjectAlign {
+        SizedDst {
             metadata,
             obj_bytes,
             _phantom: PhantomData,
@@ -94,7 +94,7 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> StackObjectAlign<Dyn, A, N> {
     }
 }
 
-impl<Dyn: ?Sized, A: Alignment, const N: usize> Drop for StackObjectAlign<Dyn, A, N> {
+impl<Dyn: ?Sized, A: Alignment, const N: usize> Drop for SizedDst<Dyn, A, N> {
     fn drop(&mut self) {
         // SAFETY:
         // - `as_mut_ptr` is guaranteed to return a dereferenceable, well-aligned pointer.
@@ -104,7 +104,7 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> Drop for StackObjectAlign<Dyn, A
     }
 }
 
-impl<Dyn: ?Sized, A: Alignment, const N: usize> Deref for StackObjectAlign<Dyn, A, N> {
+impl<Dyn: ?Sized, A: Alignment, const N: usize> Deref for SizedDst<Dyn, A, N> {
     type Target = Dyn;
 
     fn deref(&self) -> &Self::Target {
@@ -116,7 +116,7 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> Deref for StackObjectAlign<Dyn, 
     }
 }
 
-impl<Dyn: ?Sized, A: Alignment, const N: usize> DerefMut for StackObjectAlign<Dyn, A, N> {
+impl<Dyn: ?Sized, A: Alignment, const N: usize> DerefMut for SizedDst<Dyn, A, N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // SAFETY:
         // - `as_mut_ptr` is guaranteed to return a dereferenceable, well-aligned pointer.
@@ -126,10 +126,20 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> DerefMut for StackObjectAlign<Dy
     }
 }
 
-pub type StackObjectA1<Dyn, const N: usize> = StackObjectAlign<Dyn, A1, N>;
-pub type StackObjectA2<Dyn, const N: usize> = StackObjectAlign<Dyn, A2, N>;
-pub type StackObjectA4<Dyn, const N: usize> = StackObjectAlign<Dyn, A4, N>;
-pub type StackObjectA8<Dyn, const N: usize> = StackObjectAlign<Dyn, A8, N>;
+pub type SizedDstA1<Dyn, const N: usize> = SizedDst<Dyn, A1, N>;
+pub type SizedDstA2<Dyn, const N: usize> = SizedDst<Dyn, A2, N>;
+pub type SizedDstA4<Dyn, const N: usize> = SizedDst<Dyn, A4, N>;
+pub type SizedDstA8<Dyn, const N: usize> = SizedDst<Dyn, A8, N>;
+pub type SizedDstA16<Dyn, const N: usize> = SizedDst<Dyn, A16, N>;
+pub type SizedDstA32<Dyn, const N: usize> = SizedDst<Dyn, A32, N>;
+pub type SizedDstA64<Dyn, const N: usize> = SizedDst<Dyn, A64, N>;
+
+#[cfg(target_pointer_width = "16")]
+pub type SizedDstNative<Dyn, const N: usize> = SizedDstA2<Dyn, N>;
+#[cfg(target_pointer_width = "32")]
+pub type SizedDstNative<Dyn, const N: usize> = SizedDstA4<Dyn, N>;
+#[cfg(target_pointer_width = "64")]
+pub type SizedDstNative<Dyn, const N: usize> = SizedDstA8<Dyn, N>;
 
 #[cfg(test)]
 mod tests {
@@ -137,28 +147,28 @@ mod tests {
 
     use super::*;
 
-    assert_not_impl_any!(StackObjectA8::<dyn ToString, 8>: Send, Sync);
+    assert_not_impl_any!(SizedDstA8::<dyn ToString, 8>: Send, Sync);
 
-    assert_impl_all!(StackObjectA8::<dyn ToString + Send, 8>: Send);
-    assert_not_impl_any!(StackObjectA8::<dyn ToString + Send, 8>: Sync);
+    assert_impl_all!(SizedDstA8::<dyn ToString + Send, 8>: Send);
+    assert_not_impl_any!(SizedDstA8::<dyn ToString + Send, 8>: Sync);
 
-    assert_impl_all!(StackObjectA8::<dyn ToString + Send + Sync, 8>: Send, Sync);
+    assert_impl_all!(SizedDstA8::<dyn ToString + Send + Sync, 8>: Send, Sync);
 
     #[allow(clippy::needless_borrows_for_generic_args)]
     #[test]
     fn to_string() {
         let n = 123;
-        let mut obj = StackObjectA8::<dyn ToString, 8>::new(4);
+        let mut obj = SizedDstA8::<dyn ToString, 8>::new(4);
         assert_eq!(obj.to_string(), "4");
 
-        obj = StackObjectA8::new('a');
+        obj = SizedDstA8::new('a');
         assert_eq!(obj.to_string(), "a");
 
-        obj = StackObjectA8::new(123u64);
+        obj = SizedDstA8::new(123u64);
         assert_eq!(obj.to_string(), "123");
 
         // This is safe, because n outlives obj
-        obj = StackObjectA8::new(&n);
+        obj = SizedDstA8::new(&n);
         assert_eq!(obj.to_string(), "123");
 
         assert_eq!(align_of_val(&obj.obj_bytes), 8);
@@ -167,11 +177,11 @@ mod tests {
 
     #[test]
     fn small() {
-        let mut obj = StackObjectA1::<dyn std::fmt::Debug, 2>::new(3u8);
+        let mut obj = SizedDstA1::<dyn std::fmt::Debug, 2>::new(3u8);
         assert_eq!(align_of_val(&obj.obj_bytes), 1);
         assert!(size_of_val(&obj.obj_bytes) >= 2);
 
-        obj = StackObjectA1::new([1u8, 2u8]);
+        obj = SizedDstA1::new([1u8, 2u8]);
         assert_eq!(align_of_val(&obj.obj_bytes), 1);
         assert!(size_of_val(&obj.obj_bytes) >= 2);
     }
@@ -205,7 +215,7 @@ mod tests {
             bop_count: &mut bop_count,
             drop_count: &mut drop_count,
         };
-        let mut obj = StackObjectA8::<dyn Bop, 20>::new(test);
+        let mut obj = SizedDstA8::<dyn Bop, 20>::new(test);
         obj.bop();
         obj.bop();
         drop(obj);
@@ -218,13 +228,13 @@ mod tests {
 
     #[test]
     fn slice() {
-        let mut obj = StackObjectA1::<[u8], 4>::new([b'a', b'b']);
+        let mut obj = SizedDstA1::<[u8], 4>::new([b'a', b'b']);
         assert_eq!(obj.deref(), b"ab");
 
-        obj = StackObjectA1::<[u8], 4>::new([b'a', b'b', b'c', b'd']);
+        obj = SizedDstA1::<[u8], 4>::new([b'a', b'b', b'c', b'd']);
         assert_eq!(obj.deref(), b"abcd");
 
-        obj = StackObjectA1::<[u8], 4>::new([]);
+        obj = SizedDstA1::<[u8], 4>::new([]);
         assert_eq!(obj.deref(), b"");
     }
 }
