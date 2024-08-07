@@ -1,5 +1,8 @@
+//! Placeholder
+
 #![cfg_attr(not(test), no_std)]
 #![feature(ptr_metadata, unsize)]
+#![warn(missing_docs)]
 
 use core::{
     marker::PhantomData,
@@ -13,17 +16,65 @@ use aligned::{Aligned, Alignment};
 
 pub use aligned::{A1, A16, A2, A32, A4, A64, A8};
 
+/// Sized object that stores a DST object, such as a trait object, on the stack.
+///
+/// The layout of `SizedDst` consists of the DST metadata (in the case of trait objects, this is
+/// the vtable pointer)  followed a fixed block of memory for storing the actual object.
+///
+/// `SizeDst` implements `Deref` and `DerefMut` for the DST, so it can be used in place of the DST
+/// in most use-cases.
+///
+/// ```
+/// # use sized_dst::SizedDstNative;
+/// let dst = SizedDstNative::<dyn ToString, 8>::new(12u32);
+/// assert_eq!(dst.to_string(), "12");
+/// ```
+///
+/// # Alignment and Capacity
+///
+/// The alignment and capacity of the backing storage are specified via the generic parameters `A`
+/// and `N` respectively. Since DST objects can have any size and alignment, the object being
+/// stored must fit and be well-aligned within the backing storage. These checks are done at
+/// **compile-time**, resulting in a compile-time error if the size or alignment requirements are
+/// not met.
+///
+/// For example, the following will work:
+/// ```
+/// # use sized_dst::{SizedDst, A4};
+/// // u32 fits within 8 bytes and an alignment of 4
+/// let dst = SizedDst::<dyn std::fmt::Debug, A4, 8>::new(12u32);
+/// ```
+/// however, this will fail to compile due to insufficient capacity:
+/// ```compile_fail
+/// # use sized_dst::{SizedDst, A4};
+/// // [u32; 3] does not fit within 8 bytes
+/// let dst = SizedDst::<dyn std::fmt::Debug, A4, 8>::new([1u32, 23u32, 0u32]);
+/// ```
+/// and this will also fail to compile due to insufficient alignment:
+/// ```compile_fail
+/// # use sized_dst::{SizedDst, A4};
+/// // f64 does not fit the alignment requirement of 4 bytes
+/// let dst = SizedDst::<dyn std::fmt::Debug, A4, 8>::new(12.0f64);
+/// ```
+///
+/// For a `SizedDst` that's aligned to the target word boundary, see [`SizedDstNative`]. This will
+/// almost always be what you want.
 #[repr(C)]
-pub struct SizedDst<Dyn: ?Sized + Pointee, A: Alignment, const N: usize> {
-    metadata: <Dyn as Pointee>::Metadata,
+pub struct SizedDst<DST: ?Sized + Pointee, A: Alignment, const N: usize> {
+    metadata: <DST as Pointee>::Metadata,
     obj_bytes: Aligned<A, [MaybeUninit<u8>; N]>,
-    // Technically we own an instance of Dyn, so we need this for `Send` and `Sync` to be
+    // Technically we own an instance of DST, so we need this for `Send` and `Sync` to be
     // propagated correctly
-    _phantom: PhantomData<Dyn>,
+    _phantom: PhantomData<DST>,
 }
 
-impl<Dyn: ?Sized, A: Alignment, const N: usize> SizedDst<Dyn, A, N> {
-    pub fn new<T: Unsize<Dyn>>(value: T) -> Self {
+impl<DST: ?Sized, A: Alignment, const N: usize> SizedDst<DST, A, N> {
+    /// Create a new `SizedDst` from a sized `value`.
+    ///
+    /// `value` is coerced from its original type into the DST and stored into the `SizedDst`.
+    /// The size and alignment of `value` are checked against the `SizedDst` parameters at
+    /// **compile-time**, resulting in a compile error if `value` doesn't fit.
+    pub fn new<T: Unsize<DST>>(value: T) -> Self {
         const {
             assert!(
                 size_of::<T>() <= N,
@@ -50,10 +101,10 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> SizedDst<Dyn, A, N> {
     /// - `self.obj_bytes` must be at least `val_size` bytes long.
     /// - `value`'s alignment requirements must not be more strict than `self.obj_bytes`.
     /// - `mem::forget` must be called on the `value` object after this call.
-    unsafe fn from_dyn(value: &Dyn, val_size: usize) -> Self {
-        // The metadata comes from a fat Dyn pointer pointing to `value`. We can use the metadata
-        // to reconstruct the fat Dyn pointer in the future.
-        let metadata = core::ptr::metadata(value as *const Dyn);
+    unsafe fn from_dyn(value: &DST, val_size: usize) -> Self {
+        // The metadata comes from a fat DST pointer pointing to `value`. We can use the metadata
+        // to reconstruct the fat DST pointer in the future.
+        let metadata = core::ptr::metadata(value as *const DST);
 
         let mut obj_bytes = Aligned([MaybeUninit::uninit(); N]);
         // Move `value` into `obj_bytes`
@@ -65,7 +116,7 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> SizedDst<Dyn, A, N> {
         // - `value` and `obj_bytes` are separate variables, so they can't overlap.
         unsafe {
             copy_nonoverlapping(
-                value as *const Dyn as *const MaybeUninit<u8>,
+                value as *const DST as *const MaybeUninit<u8>,
                 obj_bytes.as_mut_ptr(),
                 val_size,
             )
@@ -79,22 +130,22 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> SizedDst<Dyn, A, N> {
     }
 
     /// Get a dereferenceable, well-aligned pointer to the stored DST object
-    fn as_ptr(&self) -> *const Dyn {
-        // A value that coerces into `Dyn` was written into `obj_bytes` in the constructor, so the
-        // pointer to `obj_bytes` always points to a valid, well-aligned instance of `Dyn`.
-        // Additionally, `metadata` was extracted from a fat Dyn pointer in the constructor . As a
-        // result, the reconstructed Dyn pointer is guaranteed to be dereferenceable.
+    fn as_ptr(&self) -> *const DST {
+        // A value that coerces into `DST` was written into `obj_bytes` in the constructor, so the
+        // pointer to `obj_bytes` always points to a valid, well-aligned instance of `DST`.
+        // Additionally, `metadata` was extracted from a fat DST pointer in the constructor . As a
+        // result, the reconstructed DST pointer is guaranteed to be dereferenceable.
         from_raw_parts(self.obj_bytes.as_ptr(), self.metadata)
     }
 
     /// Get a dereferenceable, well-aligned mutable pointer to the stored DST object
-    fn as_mut_ptr(&mut self) -> *mut Dyn {
+    fn as_mut_ptr(&mut self) -> *mut DST {
         // See `as_ptr` for how the API guarantees are upholded
         from_raw_parts_mut(self.obj_bytes.as_mut_ptr(), self.metadata)
     }
 }
 
-impl<Dyn: ?Sized, A: Alignment, const N: usize> Drop for SizedDst<Dyn, A, N> {
+impl<DST: ?Sized, A: Alignment, const N: usize> Drop for SizedDst<DST, A, N> {
     fn drop(&mut self) {
         // SAFETY:
         // - `as_mut_ptr` is guaranteed to return a dereferenceable, well-aligned pointer.
@@ -104,8 +155,8 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> Drop for SizedDst<Dyn, A, N> {
     }
 }
 
-impl<Dyn: ?Sized, A: Alignment, const N: usize> Deref for SizedDst<Dyn, A, N> {
-    type Target = Dyn;
+impl<DST: ?Sized, A: Alignment, const N: usize> Deref for SizedDst<DST, A, N> {
+    type Target = DST;
 
     fn deref(&self) -> &Self::Target {
         // SAFETY:
@@ -116,7 +167,7 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> Deref for SizedDst<Dyn, A, N> {
     }
 }
 
-impl<Dyn: ?Sized, A: Alignment, const N: usize> DerefMut for SizedDst<Dyn, A, N> {
+impl<DST: ?Sized, A: Alignment, const N: usize> DerefMut for SizedDst<DST, A, N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // SAFETY:
         // - `as_mut_ptr` is guaranteed to return a dereferenceable, well-aligned pointer.
@@ -126,20 +177,33 @@ impl<Dyn: ?Sized, A: Alignment, const N: usize> DerefMut for SizedDst<Dyn, A, N>
     }
 }
 
-pub type SizedDstA1<Dyn, const N: usize> = SizedDst<Dyn, A1, N>;
-pub type SizedDstA2<Dyn, const N: usize> = SizedDst<Dyn, A2, N>;
-pub type SizedDstA4<Dyn, const N: usize> = SizedDst<Dyn, A4, N>;
-pub type SizedDstA8<Dyn, const N: usize> = SizedDst<Dyn, A8, N>;
-pub type SizedDstA16<Dyn, const N: usize> = SizedDst<Dyn, A16, N>;
-pub type SizedDstA32<Dyn, const N: usize> = SizedDst<Dyn, A32, N>;
-pub type SizedDstA64<Dyn, const N: usize> = SizedDst<Dyn, A64, N>;
+/// [`SizedDst`] storing an object with alignment of 1 byte
+pub type SizedDstA1<DST, const N: usize> = SizedDst<DST, A1, N>;
+/// [`SizedDst`] storing an object with alignment of 2 bytes
+pub type SizedDstA2<DST, const N: usize> = SizedDst<DST, A2, N>;
+/// [`SizedDst`] storing an object with alignment of 4 bytes
+pub type SizedDstA4<DST, const N: usize> = SizedDst<DST, A4, N>;
+/// [`SizedDst`] storing an object with alignment of 8 bytes
+pub type SizedDstA8<DST, const N: usize> = SizedDst<DST, A8, N>;
+/// [`SizedDst`] storing an object with alignment of 16 bytes
+pub type SizedDstA16<DST, const N: usize> = SizedDst<DST, A16, N>;
+/// [`SizedDst`] storing an object with alignment of 32 bytes
+pub type SizedDstA32<DST, const N: usize> = SizedDst<DST, A32, N>;
+/// [`SizedDst`] storing an object with alignment of 64 bytes
+pub type SizedDstA64<DST, const N: usize> = SizedDst<DST, A64, N>;
 
 #[cfg(target_pointer_width = "16")]
-pub type SizedDstNative<Dyn, const N: usize> = SizedDstA2<Dyn, N>;
+/// [`SizedDst`] aligned to the target word boundary. This is almost always the alignment that you
+/// want to use
+pub type SizedDstNative<DST, const N: usize> = SizedDstA2<DST, N>;
 #[cfg(target_pointer_width = "32")]
-pub type SizedDstNative<Dyn, const N: usize> = SizedDstA4<Dyn, N>;
+/// [`SizedDst`] aligned to the target word boundary. This is almost always the alignment that you
+/// want to use
+pub type SizedDstNative<DST, const N: usize> = SizedDstA4<DST, N>;
 #[cfg(target_pointer_width = "64")]
-pub type SizedDstNative<Dyn, const N: usize> = SizedDstA8<Dyn, N>;
+/// [`SizedDst`] aligned to the target word boundary. This is almost always the alignment that you
+/// want to use
+pub type SizedDstNative<DST, const N: usize> = SizedDstA8<DST, N>;
 
 #[cfg(test)]
 mod tests {
