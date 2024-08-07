@@ -80,6 +80,8 @@ impl<DST: ?Sized, A: Alignment, const N: usize> SizedDst<DST, A, N> {
                 size_of::<T>() <= N,
                 "Value must fit within the stack object"
             );
+        }
+        const {
             assert!(
                 align_of::<T>() <= align_of::<A>(),
                 "Value alignment requirements must not exceed that of the stack object"
