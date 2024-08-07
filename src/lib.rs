@@ -252,6 +252,26 @@ mod tests {
         assert!(size_of_val(&obj.obj_bytes) >= 2);
     }
 
+    #[allow(clippy::needless_borrows_for_generic_args)]
+    #[test]
+    fn native() {
+        let mut obj = SizedDstNative::<dyn std::fmt::Debug, 16>::new(0usize);
+        assert_eq!(align_of_val(&obj.obj_bytes), size_of::<usize>());
+        assert!(size_of_val(&obj.obj_bytes) >= 16);
+
+        obj = SizedDstNative::new(std::ptr::null::<*const String>());
+        assert_eq!(align_of_val(&obj.obj_bytes), size_of::<usize>());
+        assert!(size_of_val(&obj.obj_bytes) >= 16);
+
+        obj = SizedDstNative::new(Box::new(32));
+        assert_eq!(align_of_val(&obj.obj_bytes), size_of::<usize>());
+        assert!(size_of_val(&obj.obj_bytes) >= 16);
+
+        obj = SizedDstNative::new(&0);
+        assert_eq!(align_of_val(&obj.obj_bytes), size_of::<usize>());
+        assert!(size_of_val(&obj.obj_bytes) >= 16);
+    }
+
     struct Test<'a> {
         bop_count: &'a mut u32,
         drop_count: &'a mut u32,
