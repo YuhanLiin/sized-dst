@@ -323,4 +323,10 @@ mod tests {
         obj = SizedDstA1::<[u8], 4>::new([]);
         assert_eq!(obj.deref(), b"");
     }
+
+    #[test]
+    fn align32() {
+        let obj = SizedDstA32::<dyn std::fmt::Debug, 32>::new(aligned::Aligned::<A32, _>(0));
+        assert_eq!(align_of_val(&obj.obj_bytes), 32);
+    }
 }
