@@ -299,7 +299,7 @@ impl<DST: ?Sized + Write, A: Alignment, const N: usize> Write for SizedDst<DST, 
         self.deref_mut().write_all(buf)
     }
     fn write_fmt(&mut self, fmt: std::fmt::Arguments<'_>) -> std::io::Result<()> {
-        self.deref_mut().write_all(fmt)
+        self.deref_mut().write_fmt(fmt)
     }
 }
 
