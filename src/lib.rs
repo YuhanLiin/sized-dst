@@ -290,29 +290,26 @@ mod tests {
         assert!(size_of_val(&obj.obj_bytes) >= 16);
     }
 
-    struct Test<'a> {
-        bop_count: &'a mut u32,
-        drop_count: &'a mut u32,
-    }
-
-    trait Bop {
-        fn bop(&mut self);
-    }
-
-    impl<'a> Bop for Test<'a> {
-        fn bop(&mut self) {
-            *self.bop_count += 1;
-        }
-    }
-
-    impl<'a> Drop for Test<'a> {
-        fn drop(&mut self) {
-            *self.drop_count += 1;
-        }
-    }
-
     #[test]
     fn custom_trait_obj() {
+        struct Test<'a> {
+            bop_count: &'a mut u32,
+            drop_count: &'a mut u32,
+        }
+        trait Bop {
+            fn bop(&mut self);
+        }
+        impl<'a> Bop for Test<'a> {
+            fn bop(&mut self) {
+                *self.bop_count += 1;
+            }
+        }
+        impl<'a> Drop for Test<'a> {
+            fn drop(&mut self) {
+                *self.drop_count += 1;
+            }
+        }
+
         let mut bop_count = 0;
         let mut drop_count = 0;
         let test = Test {
@@ -346,5 +343,28 @@ mod tests {
     fn align32() {
         let obj = SizedDstA32::<dyn std::fmt::Debug, 32>::new(aligned::Aligned::<A32, _>(0));
         assert_eq!(align_of_val(&obj.obj_bytes), 32);
+    }
+
+    #[test]
+    fn any_replace() {
+        let mut obj = SizedDstNative::<dyn Any, 32>::new(String::from("xyz"));
+        let ref_mut = obj.downcast_mut::<String>().unwrap();
+        assert_eq!(ref_mut, "xyz");
+
+        // Use a downcasted reference to replace the inner object without changing the metadata.
+        // The metadata should still be valid because the concrete type of the replacement object
+        // is the exact same as the original object, so future from_raw_parts calls are still sound.
+        *ref_mut = String::from("abc");
+        assert_eq!(obj.downcast_ref::<String>().unwrap(), "abc");
+    }
+
+    #[test]
+    fn downcast() {
+        let obj = SizedDstNative::<dyn Any, 32>::new(Box::new(2u32));
+        let val: Box<u32> = obj.downcast::<Box<u32>>().unwrap();
+        assert_eq!(*val, 2);
+
+        let obj = SizedDstNative::<dyn Any, 32>::new(Box::new(2u32));
+        assert!(obj.downcast::<String>().is_none());
     }
 }
