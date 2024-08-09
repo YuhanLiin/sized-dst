@@ -1,12 +1,13 @@
 //! Placeholder
 
 #![cfg_attr(not(test), no_std)]
-#![feature(ptr_metadata, unsize)]
+#![feature(ptr_metadata, unsize, pin_deref_mut)]
 #![warn(missing_docs)]
 
+mod trait_impls;
+
 use core::{
-    marker::PhantomData,
-    marker::Unsize,
+    marker::{PhantomData, PhantomPinned, Unsize},
     mem::{size_of, MaybeUninit},
     ops::{Deref, DerefMut},
     ptr::{copy_nonoverlapping, drop_in_place, from_raw_parts, from_raw_parts_mut, Pointee},
@@ -63,8 +64,8 @@ pub use aligned::{A1, A16, A2, A32, A4, A64, A8};
 pub struct SizedDst<DST: ?Sized + Pointee, A: Alignment, const N: usize> {
     metadata: <DST as Pointee>::Metadata,
     obj_bytes: Aligned<A, [MaybeUninit<u8>; N]>,
-    // Technically we own an instance of DST, so we need this for `Send` and `Sync` to be
-    // propagated correctly
+    // Technically we own an instance of DST, so we need this for autotraits to be propagated
+    // correctly
     _phantom: PhantomData<DST>,
 }
 
