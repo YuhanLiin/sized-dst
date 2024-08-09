@@ -1,13 +1,13 @@
 //! Placeholder
 
-#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(any(test, feature = "std")), no_std)]
 #![feature(ptr_metadata, unsize, pin_deref_mut)]
 #![warn(missing_docs)]
 
 mod trait_impls;
 
 use core::{
-    marker::{PhantomData, PhantomPinned, Unsize},
+    marker::{PhantomData, Unsize},
     mem::{size_of, MaybeUninit},
     ops::{Deref, DerefMut},
     ptr::{copy_nonoverlapping, drop_in_place, from_raw_parts, from_raw_parts_mut, Pointee},

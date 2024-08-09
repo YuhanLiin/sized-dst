@@ -1,6 +1,7 @@
 use core::{
     borrow::{Borrow, BorrowMut},
     cmp::Ordering,
+    error::Error,
     fmt::{Binary, Debug, Display, LowerExp, LowerHex, Octal, Pointer, UpperExp, UpperHex},
     future::Future,
     hash::{Hash, Hasher},
@@ -10,6 +11,11 @@ use core::{
         IndexMut, MulAssign, RemAssign, ShlAssign, ShrAssign, SubAssign,
     },
     pin::Pin,
+};
+#[cfg(feature = "std")]
+use std::{
+    io::{BufRead, Read, Seek, Write},
+    os::fd::{AsFd, AsRawFd},
 };
 
 use aligned::Alignment;
@@ -35,6 +41,20 @@ impl_fmt_trait!(UpperHex);
 impl_fmt_trait!(LowerExp);
 impl_fmt_trait!(UpperExp);
 impl_fmt_trait!(Pointer);
+
+impl<DST: ?Sized + core::fmt::Write, A: Alignment, const N: usize> core::fmt::Write
+    for SizedDst<DST, A, N>
+{
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.deref_mut().write_str(s)
+    }
+    fn write_char(&mut self, c: char) -> core::fmt::Result {
+        self.deref_mut().write_char(c)
+    }
+    fn write_fmt(&mut self, args: core::fmt::Arguments<'_>) -> core::fmt::Result {
+        self.deref_mut().write_fmt(args)
+    }
+}
 
 impl<T: ?Sized, DST: ?Sized + AsRef<T>, A: Alignment, const N: usize> AsRef<T>
     for SizedDst<DST, A, N>
@@ -239,6 +259,96 @@ impl<DST: ?Sized + Future, A: Alignment, const N: usize> Future for SizedDst<DST
     }
 }
 
+impl<DST: ?Sized + Error, A: Alignment, const N: usize> Error for SizedDst<DST, A, N> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.deref().source()
+    }
+}
+
+#[cfg(feature = "std")]
+impl<DST: ?Sized + Read, A: Alignment, const N: usize> Read for SizedDst<DST, A, N> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.deref_mut().read(buf)
+    }
+    fn read_vectored(&mut self, bufs: &mut [std::io::IoSliceMut<'_>]) -> std::io::Result<usize> {
+        self.deref_mut().read_vectored(bufs)
+    }
+    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> std::io::Result<usize> {
+        self.deref_mut().read_to_end(buf)
+    }
+    fn read_to_string(&mut self, buf: &mut String) -> std::io::Result<usize> {
+        self.deref_mut().read_to_string(buf)
+    }
+    fn read_exact(&mut self, buf: &mut [u8]) -> std::io::Result<()> {
+        self.deref_mut().read_exact(buf)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<DST: ?Sized + Write, A: Alignment, const N: usize> Write for SizedDst<DST, A, N> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.deref_mut().write(buf)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.deref_mut().flush()
+    }
+    fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
+        self.deref_mut().write_vectored(bufs)
+    }
+    fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
+        self.deref_mut().write_all(buf)
+    }
+    fn write_fmt(&mut self, fmt: std::fmt::Arguments<'_>) -> std::io::Result<()> {
+        self.deref_mut().write_all(fmt)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<DST: ?Sized + BufRead, A: Alignment, const N: usize> BufRead for SizedDst<DST, A, N> {
+    fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
+        self.deref_mut().fill_buf()
+    }
+    fn consume(&mut self, amt: usize) {
+        self.deref_mut().consume(amt)
+    }
+    fn read_until(&mut self, byte: u8, buf: &mut Vec<u8>) -> std::io::Result<usize> {
+        self.deref_mut().read_until(byte, buf)
+    }
+    fn read_line(&mut self, buf: &mut String) -> std::io::Result<usize> {
+        self.deref_mut().read_line(buf)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<DST: ?Sized + Seek, A: Alignment, const N: usize> Seek for SizedDst<DST, A, N> {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.deref_mut().seek(pos)
+    }
+    fn rewind(&mut self) -> std::io::Result<()> {
+        self.deref_mut().rewind()
+    }
+    fn stream_position(&mut self) -> std::io::Result<u64> {
+        self.deref_mut().stream_position()
+    }
+    fn seek_relative(&mut self, offset: i64) -> std::io::Result<()> {
+        self.deref_mut().seek_relative(offset)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<DST: ?Sized + AsFd, A: Alignment, const N: usize> AsFd for SizedDst<DST, A, N> {
+    fn as_fd(&self) -> std::os::unix::prelude::BorrowedFd<'_> {
+        self.deref().as_fd()
+    }
+}
+
+#[cfg(feature = "std")]
+impl<DST: ?Sized + AsRawFd, A: Alignment, const N: usize> AsRawFd for SizedDst<DST, A, N> {
+    fn as_raw_fd(&self) -> std::os::unix::prelude::RawFd {
+        self.deref().as_raw_fd()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use static_assertions::{assert_impl_all, assert_not_impl_all};
@@ -246,8 +356,10 @@ mod tests {
     use super::*;
     use crate::*;
 
+    // Ensure Unpin is only implemented if DST is Unpin
     assert_not_impl_all!(SizedDstNative<dyn Future<Output = i32>, 12>: Unpin);
-    assert_impl_all!(SizedDstNative<dyn Future<Output = i32> + Unpin, 12>: Unpin);
+    assert_impl_all!(SizedDstNative<dyn Future<Output = i32>, 12>: Future<Output = i32>);
+    assert_impl_all!(SizedDstNative<dyn Future<Output = i32> + Unpin, 12>: Unpin, Future<Output = i32>);
 
     #[test]
     fn future() {
@@ -256,5 +368,49 @@ mod tests {
 
         let n = futures_executor::block_on(dst);
         assert_eq!(n, 5);
+    }
+
+    assert_impl_all!(SizedDstNative<dyn AsRef<[u8]>, 12>: AsRef<[u8]>, BorrowMut<dyn AsRef<[u8]>>);
+    assert_impl_all!(SizedDstNative<dyn AsMut<[u8]>, 12>: AsMut<[u8]>, BorrowMut<dyn AsMut<[u8]>>);
+
+    #[test]
+    fn as_ref() {
+        let dst = SizedDstNative::<dyn AsRef<[u8]>, 32>::new(String::from("xyz"));
+        assert_eq!(dst.as_ref(), b"xyz");
+    }
+
+    #[test]
+    fn as_mut() {
+        let mut dst = SizedDstNative::<dyn AsMut<[u32]>, 32>::new(vec![0, 1, 2]);
+        assert_eq!(dst.as_mut(), &[0, 1, 2]);
+        dst.as_mut()[0] = 3;
+        assert_eq!(dst.as_mut(), &[3, 1, 2]);
+    }
+
+    assert_impl_all!(SizedDstNative<dyn IndexMut<usize, Output = u8>, 32>: IndexMut<usize>, Index<usize>);
+
+    #[test]
+    fn index() {
+        let mut dst = SizedDstNative::<dyn IndexMut<usize, Output = u8>, 32>::new(vec![0, 3]);
+        assert_eq!(dst[0], 0);
+        assert_eq!(dst[1], 3);
+        dst[0] = 4;
+        assert_eq!(dst[0], 4);
+    }
+
+    assert_impl_all!(SizedDstNative<dyn DoubleEndedIterator<Item = u8>, 32>: DoubleEndedIterator, Iterator);
+    assert_impl_all!(SizedDstNative<dyn FusedIterator<Item = u8>, 32>: FusedIterator, Iterator);
+    assert_impl_all!(SizedDstNative<dyn ExactSizeIterator<Item = u8>, 32>: ExactSizeIterator, Iterator);
+
+    #[test]
+    fn iterator() {
+        let mut dst = SizedDstNative::<dyn DoubleEndedIterator<Item = u8>, 32>::new(
+            [2, 3, 4, 5, 6].into_iter(),
+        );
+        assert_eq!(dst.next(), Some(2));
+        assert_eq!(dst.nth(1), Some(4));
+        assert_eq!(dst.next_back(), Some(6));
+        assert_eq!(dst.nth_back(0), Some(5));
+        assert_eq!(dst.next(), None);
     }
 }

@@ -3,6 +3,9 @@ name = "sized-dst"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+std = [] # impls of std traits
+
 [dependencies]
 aligned = "0.4.2"
 
