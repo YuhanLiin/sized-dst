@@ -149,21 +149,28 @@ impl<DST: ?Sized, A: Alignment, const N: usize> SizedDst<DST, A, N> {
     }
 }
 
-impl<A: Alignment, const N: usize> SizedDst<dyn Any, A, N> {
-    /// Attempt to downcast to a concrete type
-    pub fn downcast<T: Any>(self) -> Option<T> {
-        if let Some(val_ref) = self.deref().downcast_ref() {
-            // SAFETY:
-            // - val_ref is a valid reference to T, so we're reading a valid value of T for sure.
-            // - Call mem::forget on self so we don't drop T twice.
-            let val = unsafe { core::ptr::read(val_ref as *const T) };
-            core::mem::forget(self);
-            Some(val)
-        } else {
-            None
+macro_rules! downcast_impl {
+    ($dst:ty) => {
+        impl<A: Alignment, const N: usize> SizedDst<$dst, A, N> {
+            /// Attempt to downcast to a concrete type
+            pub fn downcast<T: Any>(self) -> Option<T> {
+                if let Some(val_ref) = self.deref().downcast_ref() {
+                    // SAFETY:
+                    // - val_ref is a valid reference to T, so we're reading a valid value of T for sure.
+                    // - Call mem::forget on self so we don't drop T twice.
+                    let val = unsafe { core::ptr::read(val_ref as *const T) };
+                    core::mem::forget(self);
+                    Some(val)
+                } else {
+                    None
+                }
+            }
         }
-    }
+    };
 }
+downcast_impl!(dyn Any);
+downcast_impl!(dyn Any + Send);
+downcast_impl!(dyn Any + Send + Sync);
 
 impl<DST: ?Sized, A: Alignment, const N: usize> Drop for SizedDst<DST, A, N> {
     fn drop(&mut self) {
