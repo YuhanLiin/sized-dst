@@ -7,6 +7,7 @@
 mod trait_impls;
 
 use core::{
+    any::Any,
     marker::{PhantomData, Unsize},
     mem::{size_of, MaybeUninit},
     ops::{Deref, DerefMut},
@@ -145,6 +146,22 @@ impl<DST: ?Sized, A: Alignment, const N: usize> SizedDst<DST, A, N> {
     fn as_mut_ptr(&mut self) -> *mut DST {
         // See `as_ptr` for how the API guarantees are upholded
         from_raw_parts_mut(self.obj_bytes.as_mut_ptr(), self.metadata)
+    }
+}
+
+impl<A: Alignment, const N: usize> SizedDst<dyn Any, A, N> {
+    /// Attempt to downcast to a concrete type
+    pub fn downcast<T: Any>(self) -> Option<T> {
+        if let Some(val_ref) = self.deref().downcast_ref() {
+            // SAFETY:
+            // - val_ref is a valid reference to T, so we're reading a valid value of T for sure.
+            // - Call mem::forget on self so we don't drop T twice.
+            let val = unsafe { core::ptr::read(val_ref as *const T) };
+            core::mem::forget(self);
+            Some(val)
+        } else {
+            None
+        }
     }
 }
 
