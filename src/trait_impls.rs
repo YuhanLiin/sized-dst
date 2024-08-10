@@ -20,11 +20,11 @@ use std::{
 
 use aligned::Alignment;
 
-use crate::SizedDst;
+use crate::DstBase;
 
 macro_rules! impl_fmt_trait {
     ($trait:ident) => {
-        impl<DST: ?Sized + $trait, A: Alignment, const N: usize> $trait for SizedDst<DST, A, N> {
+        impl<D: ?Sized + $trait, A: Alignment, const N: usize> $trait for DstBase<D, A, N> {
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 self.deref().fmt(f)
             }
@@ -42,8 +42,8 @@ impl_fmt_trait!(LowerExp);
 impl_fmt_trait!(UpperExp);
 impl_fmt_trait!(Pointer);
 
-impl<DST: ?Sized + core::fmt::Write, A: Alignment, const N: usize> core::fmt::Write
-    for SizedDst<DST, A, N>
+impl<D: ?Sized + core::fmt::Write, A: Alignment, const N: usize> core::fmt::Write
+    for DstBase<D, A, N>
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         self.deref_mut().write_str(s)
@@ -56,45 +56,39 @@ impl<DST: ?Sized + core::fmt::Write, A: Alignment, const N: usize> core::fmt::Wr
     }
 }
 
-impl<T: ?Sized, DST: ?Sized + AsRef<T>, A: Alignment, const N: usize> AsRef<T>
-    for SizedDst<DST, A, N>
-{
+impl<T: ?Sized, D: ?Sized + AsRef<T>, A: Alignment, const N: usize> AsRef<T> for DstBase<D, A, N> {
     fn as_ref(&self) -> &T {
         self.deref().as_ref()
     }
 }
 
-impl<T: ?Sized, DST: ?Sized + AsMut<T>, A: Alignment, const N: usize> AsMut<T>
-    for SizedDst<DST, A, N>
-{
+impl<T: ?Sized, D: ?Sized + AsMut<T>, A: Alignment, const N: usize> AsMut<T> for DstBase<D, A, N> {
     fn as_mut(&mut self) -> &mut T {
         self.deref_mut().as_mut()
     }
 }
 
-impl<DST: ?Sized, A: Alignment, const N: usize> Borrow<DST> for SizedDst<DST, A, N> {
-    fn borrow(&self) -> &DST {
+impl<D: ?Sized, A: Alignment, const N: usize> Borrow<D> for DstBase<D, A, N> {
+    fn borrow(&self) -> &D {
         self.deref()
     }
 }
 
-impl<DST: ?Sized, A: Alignment, const N: usize> BorrowMut<DST> for SizedDst<DST, A, N> {
-    fn borrow_mut(&mut self) -> &mut DST {
+impl<D: ?Sized, A: Alignment, const N: usize> BorrowMut<D> for DstBase<D, A, N> {
+    fn borrow_mut(&mut self) -> &mut D {
         self.deref_mut()
     }
 }
 
-impl<Idx, DST: ?Sized + Index<Idx>, A: Alignment, const N: usize> Index<Idx>
-    for SizedDst<DST, A, N>
-{
-    type Output = DST::Output;
+impl<Idx, D: ?Sized + Index<Idx>, A: Alignment, const N: usize> Index<Idx> for DstBase<D, A, N> {
+    type Output = D::Output;
     fn index(&self, index: Idx) -> &<Self as Index<Idx>>::Output {
         self.deref().index(index)
     }
 }
 
-impl<Idx, DST: ?Sized + IndexMut<Idx>, A: Alignment, const N: usize> IndexMut<Idx>
-    for SizedDst<DST, A, N>
+impl<Idx, D: ?Sized + IndexMut<Idx>, A: Alignment, const N: usize> IndexMut<Idx>
+    for DstBase<D, A, N>
 {
     fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
         self.deref_mut().index_mut(index)
@@ -103,8 +97,8 @@ impl<Idx, DST: ?Sized + IndexMut<Idx>, A: Alignment, const N: usize> IndexMut<Id
 
 macro_rules! impl_assign_trait {
     ($trait:ident, $method:ident) => {
-        impl<Rhs, DST: ?Sized + $trait<Rhs>, A: Alignment, const N: usize> $trait<Rhs>
-            for SizedDst<DST, A, N>
+        impl<Rhs, D: ?Sized + $trait<Rhs>, A: Alignment, const N: usize> $trait<Rhs>
+            for DstBase<D, A, N>
         {
             fn $method(&mut self, rhs: Rhs) {
                 self.deref_mut().$method(rhs)
@@ -124,8 +118,8 @@ impl_assign_trait!(RemAssign, rem_assign);
 impl_assign_trait!(ShrAssign, shr_assign);
 impl_assign_trait!(ShlAssign, shl_assign);
 
-impl<DST: ?Sized + Iterator, A: Alignment, const N: usize> Iterator for SizedDst<DST, A, N> {
-    type Item = DST::Item;
+impl<D: ?Sized + Iterator, A: Alignment, const N: usize> Iterator for DstBase<D, A, N> {
+    type Item = D::Item;
     fn next(&mut self) -> Option<Self::Item> {
         self.deref_mut().next()
     }
@@ -137,8 +131,8 @@ impl<DST: ?Sized + Iterator, A: Alignment, const N: usize> Iterator for SizedDst
     }
 }
 
-impl<DST: ?Sized + DoubleEndedIterator, A: Alignment, const N: usize> DoubleEndedIterator
-    for SizedDst<DST, A, N>
+impl<D: ?Sized + DoubleEndedIterator, A: Alignment, const N: usize> DoubleEndedIterator
+    for DstBase<D, A, N>
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.deref_mut().next_back()
@@ -148,18 +142,15 @@ impl<DST: ?Sized + DoubleEndedIterator, A: Alignment, const N: usize> DoubleEnde
     }
 }
 
-impl<DST: ?Sized + ExactSizeIterator, A: Alignment, const N: usize> ExactSizeIterator
-    for SizedDst<DST, A, N>
+impl<D: ?Sized + ExactSizeIterator, A: Alignment, const N: usize> ExactSizeIterator
+    for DstBase<D, A, N>
 {
     fn len(&self) -> usize {
         self.deref().len()
     }
 }
 
-impl<DST: ?Sized + FusedIterator, A: Alignment, const N: usize> FusedIterator
-    for SizedDst<DST, A, N>
-{
-}
+impl<D: ?Sized + FusedIterator, A: Alignment, const N: usize> FusedIterator for DstBase<D, A, N> {}
 
 macro_rules! cmp_method {
     ($method:ident -> $ret:ty) => {
@@ -169,11 +160,11 @@ macro_rules! cmp_method {
     };
 }
 
-impl<DST: ?Sized + PartialEq, A: Alignment, const N: usize> PartialEq for SizedDst<DST, A, N> {
+impl<D: ?Sized + PartialEq, A: Alignment, const N: usize> PartialEq for DstBase<D, A, N> {
     cmp_method!(eq -> bool);
 }
 
-impl<DST: ?Sized + PartialOrd, A: Alignment, const N: usize> PartialOrd for SizedDst<DST, A, N> {
+impl<D: ?Sized + PartialOrd, A: Alignment, const N: usize> PartialOrd for DstBase<D, A, N> {
     cmp_method!(partial_cmp -> Option<Ordering>);
     cmp_method!(lt -> bool);
     cmp_method!(le -> bool);
@@ -181,13 +172,13 @@ impl<DST: ?Sized + PartialOrd, A: Alignment, const N: usize> PartialOrd for Size
     cmp_method!(ge -> bool);
 }
 
-impl<DST: ?Sized + Eq, A: Alignment, const N: usize> Eq for SizedDst<DST, A, N> {}
+impl<D: ?Sized + Eq, A: Alignment, const N: usize> Eq for DstBase<D, A, N> {}
 
-impl<DST: ?Sized + Ord, A: Alignment, const N: usize> Ord for SizedDst<DST, A, N> {
+impl<D: ?Sized + Ord, A: Alignment, const N: usize> Ord for DstBase<D, A, N> {
     cmp_method!(cmp -> Ordering);
 }
 
-impl<DST: ?Sized + Hasher, A: Alignment, const N: usize> Hasher for SizedDst<DST, A, N> {
+impl<D: ?Sized + Hasher, A: Alignment, const N: usize> Hasher for DstBase<D, A, N> {
     fn finish(&self) -> u64 {
         self.deref().finish()
     }
@@ -232,41 +223,41 @@ impl<DST: ?Sized + Hasher, A: Alignment, const N: usize> Hasher for SizedDst<DST
     }
 }
 
-impl<DST: ?Sized + Hash, A: Alignment, const N: usize> Hash for SizedDst<DST, A, N> {
+impl<D: ?Sized + Hash, A: Alignment, const N: usize> Hash for DstBase<D, A, N> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.deref().hash(state)
     }
 }
 
-impl<DST: ?Sized + Future, A: Alignment, const N: usize> Future for SizedDst<DST, A, N> {
-    type Output = DST::Output;
+impl<D: ?Sized + Future, A: Alignment, const N: usize> Future for DstBase<D, A, N> {
+    type Output = D::Output;
     fn poll(
         self: Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
     ) -> core::task::Poll<Self::Output> {
         // SAFETY:
-        // This is basically a pin projection into Pin<&mut DST>, so the pin projection rules apply
-        // - SizedDst is Unpin only if DST is Unpin, because it has a PhantomData<DST> field.
-        // - The destructor of SizedDst only calls drop_in_place on the DST pointer. DST's
-        //   destructor can only move DST if it implements Unpin, which also means SizedDst is
-        //   Unpin. Thus, SizedDst's destructor can only move its DST field if SizedDst is Unpin.
-        // - The only way to get a mutable reference to DST is via deref_mut, which can't be called
-        //   while SizedDst is pinned, so it's impossible to re-use the memory used for the DST
-        //   with safe code after SizedDst has been pinned.
-        // - Likewise, since there's no way to obtain a mutable DST reference while SizedDst is
-        //   pinned, data can't be moved out of the DST after it's pinned.
+        // This is basically a pin projection into Pin<&mut D>, so the pin projection rules apply
+        // - DstBase is Unpin only if D is Unpin, because it has a PhantomData<D> field.
+        // - The destructor of DstBase only calls drop_in_place on the D pointer. D's
+        //   destructor can only move D if it implements Unpin, which also means DstBase is
+        //   Unpin. Thus, DstBase's destructor can only move its D field if DstBase is Unpin.
+        // - The only way to get a mutable reference to D is via deref_mut, which can't be called
+        //   while DstBase is pinned, so it's impossible to re-use the memory used for the D
+        //   with safe code after DstBase has been pinned.
+        // - Likewise, since there's no way to obtain a mutable D reference while DstBase is
+        //   pinned, data can't be moved out of the D after it's pinned.
         unsafe { self.map_unchecked_mut(|p| &mut **p).poll(cx) }
     }
 }
 
-impl<DST: ?Sized + Error, A: Alignment, const N: usize> Error for SizedDst<DST, A, N> {
+impl<D: ?Sized + Error, A: Alignment, const N: usize> Error for DstBase<D, A, N> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         self.deref().source()
     }
 }
 
 #[cfg(feature = "std")]
-impl<DST: ?Sized + Read, A: Alignment, const N: usize> Read for SizedDst<DST, A, N> {
+impl<D: ?Sized + Read, A: Alignment, const N: usize> Read for DstBase<D, A, N> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.deref_mut().read(buf)
     }
@@ -285,7 +276,7 @@ impl<DST: ?Sized + Read, A: Alignment, const N: usize> Read for SizedDst<DST, A,
 }
 
 #[cfg(feature = "std")]
-impl<DST: ?Sized + Write, A: Alignment, const N: usize> Write for SizedDst<DST, A, N> {
+impl<D: ?Sized + Write, A: Alignment, const N: usize> Write for DstBase<D, A, N> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.deref_mut().write(buf)
     }
@@ -304,7 +295,7 @@ impl<DST: ?Sized + Write, A: Alignment, const N: usize> Write for SizedDst<DST, 
 }
 
 #[cfg(feature = "std")]
-impl<DST: ?Sized + BufRead, A: Alignment, const N: usize> BufRead for SizedDst<DST, A, N> {
+impl<D: ?Sized + BufRead, A: Alignment, const N: usize> BufRead for DstBase<D, A, N> {
     fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
         self.deref_mut().fill_buf()
     }
@@ -320,7 +311,7 @@ impl<DST: ?Sized + BufRead, A: Alignment, const N: usize> BufRead for SizedDst<D
 }
 
 #[cfg(feature = "std")]
-impl<DST: ?Sized + Seek, A: Alignment, const N: usize> Seek for SizedDst<DST, A, N> {
+impl<D: ?Sized + Seek, A: Alignment, const N: usize> Seek for DstBase<D, A, N> {
     fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
         self.deref_mut().seek(pos)
     }
@@ -336,14 +327,14 @@ impl<DST: ?Sized + Seek, A: Alignment, const N: usize> Seek for SizedDst<DST, A,
 }
 
 #[cfg(feature = "std")]
-impl<DST: ?Sized + AsFd, A: Alignment, const N: usize> AsFd for SizedDst<DST, A, N> {
+impl<D: ?Sized + AsFd, A: Alignment, const N: usize> AsFd for DstBase<D, A, N> {
     fn as_fd(&self) -> std::os::unix::prelude::BorrowedFd<'_> {
         self.deref().as_fd()
     }
 }
 
 #[cfg(feature = "std")]
-impl<DST: ?Sized + AsRawFd, A: Alignment, const N: usize> AsRawFd for SizedDst<DST, A, N> {
+impl<D: ?Sized + AsRawFd, A: Alignment, const N: usize> AsRawFd for DstBase<D, A, N> {
     fn as_raw_fd(&self) -> std::os::unix::prelude::RawFd {
         self.deref().as_raw_fd()
     }
@@ -356,57 +347,56 @@ mod tests {
     use super::*;
     use crate::*;
 
-    // Ensure Unpin is only implemented if DST is Unpin
-    assert_not_impl_all!(SizedDstNative<dyn Future<Output = i32>, 12>: Unpin);
-    assert_impl_all!(SizedDstNative<dyn Future<Output = i32>, 12>: Future<Output = i32>);
-    assert_impl_all!(SizedDstNative<dyn Future<Output = i32> + Unpin, 12>: Unpin, Future<Output = i32>);
+    // Ensure Unpin is only implemented if D is Unpin
+    assert_not_impl_all!(Dst<dyn Future<Output = i32>, 12>: Unpin);
+    assert_impl_all!(Dst<dyn Future<Output = i32>, 12>: Future<Output = i32>);
+    assert_impl_all!(Dst<dyn Future<Output = i32> + Unpin, 12>: Unpin, Future<Output = i32>);
 
     #[test]
     fn future() {
         let fut = async { 5 };
-        let dst = SizedDstNative::<dyn Future<Output = i32>, 12>::new(fut);
+        let dst = Dst::<dyn Future<Output = i32>, 12>::new(fut);
 
         let n = futures_executor::block_on(dst);
         assert_eq!(n, 5);
     }
 
-    assert_impl_all!(SizedDstNative<dyn AsRef<[u8]>, 12>: AsRef<[u8]>, BorrowMut<dyn AsRef<[u8]>>);
-    assert_impl_all!(SizedDstNative<dyn AsMut<[u8]>, 12>: AsMut<[u8]>, BorrowMut<dyn AsMut<[u8]>>);
+    assert_impl_all!(Dst<dyn AsRef<[u8]>, 12>: AsRef<[u8]>, BorrowMut<dyn AsRef<[u8]>>);
+    assert_impl_all!(Dst<dyn AsMut<[u8]>, 12>: AsMut<[u8]>, BorrowMut<dyn AsMut<[u8]>>);
 
     #[test]
     fn as_ref() {
-        let dst = SizedDstNative::<dyn AsRef<[u8]>, 32>::new(String::from("xyz"));
+        let dst = Dst::<dyn AsRef<[u8]>, 32>::new(String::from("xyz"));
         assert_eq!(dst.as_ref(), b"xyz");
     }
 
     #[test]
     fn as_mut() {
-        let mut dst = SizedDstNative::<dyn AsMut<[u32]>, 32>::new(vec![0, 1, 2]);
+        let mut dst = Dst::<dyn AsMut<[u32]>, 32>::new(vec![0, 1, 2]);
         assert_eq!(dst.as_mut(), &[0, 1, 2]);
         dst.as_mut()[0] = 3;
         assert_eq!(dst.as_mut(), &[3, 1, 2]);
     }
 
-    assert_impl_all!(SizedDstNative<dyn IndexMut<usize, Output = u8>, 32>: IndexMut<usize>, Index<usize>);
+    assert_impl_all!(Dst<dyn IndexMut<usize, Output = u8>, 32>: IndexMut<usize>, Index<usize>);
 
     #[test]
     fn index() {
-        let mut dst = SizedDstNative::<dyn IndexMut<usize, Output = u8>, 32>::new(vec![0, 3]);
+        let mut dst = Dst::<dyn IndexMut<usize, Output = u8>, 32>::new(vec![0, 3]);
         assert_eq!(dst[0], 0);
         assert_eq!(dst[1], 3);
         dst[0] = 4;
         assert_eq!(dst[0], 4);
     }
 
-    assert_impl_all!(SizedDstNative<dyn DoubleEndedIterator<Item = u8>, 32>: DoubleEndedIterator, Iterator);
-    assert_impl_all!(SizedDstNative<dyn FusedIterator<Item = u8>, 32>: FusedIterator, Iterator);
-    assert_impl_all!(SizedDstNative<dyn ExactSizeIterator<Item = u8>, 32>: ExactSizeIterator, Iterator);
+    assert_impl_all!(Dst<dyn DoubleEndedIterator<Item = u8>, 32>: DoubleEndedIterator, Iterator);
+    assert_impl_all!(Dst<dyn FusedIterator<Item = u8>, 32>: FusedIterator, Iterator);
+    assert_impl_all!(Dst<dyn ExactSizeIterator<Item = u8>, 32>: ExactSizeIterator, Iterator);
 
     #[test]
     fn iterator() {
-        let mut dst = SizedDstNative::<dyn DoubleEndedIterator<Item = u8>, 32>::new(
-            [2, 3, 4, 5, 6].into_iter(),
-        );
+        let mut dst =
+            Dst::<dyn DoubleEndedIterator<Item = u8>, 32>::new([2, 3, 4, 5, 6].into_iter());
         assert_eq!(dst.next(), Some(2));
         assert_eq!(dst.nth(1), Some(4));
         assert_eq!(dst.next_back(), Some(6));

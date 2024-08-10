@@ -5,5 +5,5 @@ use sized_dst::*;
 struct Align32(u32);
 
 fn main() {
-    SizedDstA8::<dyn std::fmt::Debug, 32>::new(Align32(1));
+    DstA8::<dyn std::fmt::Debug, 32>::new(Align32(1));
 }

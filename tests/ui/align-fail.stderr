@@ -1,11 +1,11 @@
-error[E0080]: evaluation of `sized_dst::SizedDst::<dyn std::fmt::Debug, sized_dst::A8, 32>::new::<Align32>::{constant#1}` failed
+error[E0080]: evaluation of `sized_dst::DstBase::<dyn std::fmt::Debug, sized_dst::A8, 32>::new::<Align32>::{constant#1}` failed
  --> src/lib.rs
   |
   | /             assert!(
   | |                 align_of::<T>() <= align_of::<A>(),
   | |                 "Value alignment requirements must not exceed that of the stack object"
   | |             );
-  | |_____________^ the evaluated program panicked at 'Value alignment requirements must not exceed that of the stack object', $DIR/src/lib.rs:85:13
+  | |_____________^ the evaluated program panicked at 'Value alignment requirements must not exceed that of the stack object', $DIR/src/lib.rs:87:13
   |
   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `assert` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -20,8 +20,8 @@ note: erroneous constant encountered
    | |         }
    | |_________^
 
-note: the above error was encountered while instantiating `fn sized_dst::SizedDst::<dyn std::fmt::Debug, sized_dst::A8, 32>::new::<Align32>`
+note: the above error was encountered while instantiating `fn sized_dst::DstBase::<dyn std::fmt::Debug, sized_dst::A8, 32>::new::<Align32>`
  --> tests/ui/align-fail.rs:8:5
   |
-8 |     SizedDstA8::<dyn std::fmt::Debug, 32>::new(Align32(1));
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 |     DstA8::<dyn std::fmt::Debug, 32>::new(Align32(1));
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1,11 +1,11 @@
-error[E0080]: evaluation of `sized_dst::SizedDst::<dyn std::fmt::Debug, sized_dst::A8, 4>::new::<[u8; 17]>::{constant#0}` failed
+error[E0080]: evaluation of `sized_dst::DstBase::<dyn std::fmt::Debug, sized_dst::A8, 4>::new::<[u8; 17]>::{constant#0}` failed
  --> src/lib.rs
   |
   | /             assert!(
   | |                 size_of::<T>() <= N,
   | |                 "Value must fit within the stack object"
   | |             );
-  | |_____________^ the evaluated program panicked at 'Value must fit within the stack object', $DIR/src/lib.rs:79:13
+  | |_____________^ the evaluated program panicked at 'Value must fit within the stack object', $DIR/src/lib.rs:81:13
   |
   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `assert` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -20,8 +20,8 @@ note: erroneous constant encountered
    | |         }
    | |_________^
 
-note: the above error was encountered while instantiating `fn sized_dst::SizedDst::<dyn std::fmt::Debug, sized_dst::A8, 4>::new::<[u8; 17]>`
+note: the above error was encountered while instantiating `fn sized_dst::DstBase::<dyn std::fmt::Debug, sized_dst::A8, 4>::new::<[u8; 17]>`
  --> tests/ui/size-fail.rs:4:5
   |
-4 |     SizedDstA8::<dyn std::fmt::Debug, 4>::new([0u8; 17]);
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+4 |     DstA8::<dyn std::fmt::Debug, 4>::new([0u8; 17]);
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
