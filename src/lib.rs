@@ -1,4 +1,9 @@
-//! Placeholder
+#![doc = include_str!("../README.md")]
+//!
+//!
+//! If you to change the alignment requirements of your DST (for example, your type may need to be
+//! aligned to a 32-byte boundary), see [`DstBase`], which is also where most of the documentation
+//! lives.
 
 #![cfg_attr(not(any(test, feature = "std")), no_std)]
 #![feature(ptr_metadata, unsize, pin_deref_mut)]
@@ -32,7 +37,7 @@ pub use aligned::{Alignment, A1, A16, A2, A32, A4, A64, A8};
 /// assert_eq!(dst.to_string(), "12");
 /// ```
 ///
-/// Rather than using `DstBase` directly, use [`Dst`], which is aligned to the target word bounday.
+/// Rather than using `DstBase` directly, use [`Dst`], which is aligned to the target word boundary.
 /// This is almost always what you want.
 ///
 /// # Alignment and Capacity
@@ -239,7 +244,7 @@ mod tests {
     #[test]
     fn to_string() {
         let n = 123;
-        let mut obj = DstA8::<dyn ToString, 8>::new(4);
+        let mut obj = DstA8::<dyn std::fmt::Display, 8>::new(4);
         assert_eq!(obj.to_string(), "4");
 
         obj = DstA8::new('a');
