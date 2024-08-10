@@ -20,8 +20,8 @@ pub use aligned::{Alignment, A1, A16, A2, A32, A4, A64, A8};
 
 /// Sized object that stores a DST object, such as a trait object, on the stack.
 ///
-/// The layout of `DstBase` consists of the DST metadata (in the case of trait objects, this is
-/// the vtable pointer)  followed a fixed block of memory for storing the actual object.
+/// The layout of `DstBase` consists of the DST metadata (for trait objects, this is the vtable
+/// pointer) and a fixed block of memory storing the actual object.
 ///
 /// `DstBase` implements `Deref` and `DerefMut` for the DST, so it can be used in place of the DST
 /// in most use-cases.
@@ -61,7 +61,6 @@ pub use aligned::{Alignment, A1, A16, A2, A32, A4, A64, A8};
 /// // f64 does not fit the alignment requirement of 4 bytes
 /// let dst = DstBase::<dyn std::fmt::Debug, A4, 8>::new(12.0f64);
 /// ```
-#[repr(C)]
 pub struct DstBase<D: ?Sized + Pointee, A: Alignment, const N: usize> {
     metadata: <D as Pointee>::Metadata,
     obj_bytes: Aligned<A, [MaybeUninit<u8>; N]>,
