@@ -342,13 +342,19 @@ impl<D: ?Sized + AsRawFd, A: Alignment, const N: usize> AsRawFd for DstBase<D, A
 
 #[cfg(test)]
 mod tests {
-    use static_assertions::{assert_impl_all, assert_not_impl_all};
+    use static_assertions::{assert_impl_all, assert_not_impl_any};
 
     use super::*;
     use crate::*;
 
+    // Ensure Send and Sync propagate properly
+    assert_not_impl_any!(DstA8::<dyn ToString, 8>: Send, Sync);
+    assert_impl_all!(DstA8::<dyn ToString + Send, 8>: Send);
+    assert_not_impl_any!(DstA8::<dyn ToString + Send, 8>: Sync);
+    assert_impl_all!(DstA8::<dyn ToString + Send + Sync, 8>: Send, Sync);
+
     // Ensure Unpin is only implemented if D is Unpin
-    assert_not_impl_all!(Dst<dyn Future<Output = i32>, 12>: Unpin);
+    assert_not_impl_any!(Dst<dyn Future<Output = i32>, 12>: Unpin);
     assert_impl_all!(Dst<dyn Future<Output = i32>, 12>: Future<Output = i32>);
     assert_impl_all!(Dst<dyn Future<Output = i32> + Unpin, 12>: Unpin, Future<Output = i32>);
 

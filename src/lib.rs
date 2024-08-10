@@ -14,9 +14,9 @@ use core::{
     ptr::{copy_nonoverlapping, drop_in_place, from_raw_parts, from_raw_parts_mut, Pointee},
 };
 
-use aligned::{Aligned, Alignment};
+use aligned::Aligned;
 
-pub use aligned::{A1, A16, A2, A32, A4, A64, A8};
+pub use aligned::{Alignment, A1, A16, A2, A32, A4, A64, A8};
 
 /// Sized object that stores a DST object, such as a trait object, on the stack.
 ///
@@ -31,6 +31,9 @@ pub use aligned::{A1, A16, A2, A32, A4, A64, A8};
 /// let dst = Dst::<dyn ToString, 8>::new(12u32);
 /// assert_eq!(dst.to_string(), "12");
 /// ```
+///
+/// Rather than using `DstBase` directly, use [`Dst`], which is aligned to the target word bounday.
+/// This is almost always what you want.
 ///
 /// # Alignment and Capacity
 ///
@@ -58,9 +61,6 @@ pub use aligned::{A1, A16, A2, A32, A4, A64, A8};
 /// // f64 does not fit the alignment requirement of 4 bytes
 /// let dst = DstBase::<dyn std::fmt::Debug, A4, 8>::new(12.0f64);
 /// ```
-///
-/// For a `DstBase` that's aligned to the target word boundary, see [`Dst`]. This will
-/// almost always be what you want.
 #[repr(C)]
 pub struct DstBase<D: ?Sized + Pointee, A: Alignment, const N: usize> {
     metadata: <D as Pointee>::Metadata,
@@ -221,29 +221,20 @@ pub type DstA64<D, const N: usize> = DstBase<D, A64, N>;
 
 #[cfg(target_pointer_width = "16")]
 /// [`DstBase`] aligned to the target word boundary. This is almost always the alignment that you
-/// want to use
+/// want to use.
 pub type Dst<D, const N: usize> = DstA2<D, N>;
 #[cfg(target_pointer_width = "32")]
 /// [`DstBase`] aligned to the target word boundary. This is almost always the alignment that you
-/// want to use
+/// want to use.
 pub type Dst<D, const N: usize> = DstA4<D, N>;
 #[cfg(target_pointer_width = "64")]
 /// [`DstBase`] aligned to the target word boundary. This is almost always the alignment that you
-/// want to use
+/// want to use.
 pub type Dst<D, const N: usize> = DstA8<D, N>;
 
 #[cfg(test)]
 mod tests {
-    use static_assertions::{assert_impl_all, assert_not_impl_any};
-
     use super::*;
-
-    assert_not_impl_any!(DstA8::<dyn ToString, 8>: Send, Sync);
-
-    assert_impl_all!(DstA8::<dyn ToString + Send, 8>: Send);
-    assert_not_impl_any!(DstA8::<dyn ToString + Send, 8>: Sync);
-
-    assert_impl_all!(DstA8::<dyn ToString + Send + Sync, 8>: Send, Sync);
 
     #[allow(clippy::needless_borrows_for_generic_args)]
     #[test]
