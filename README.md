@@ -39,6 +39,10 @@ impl Draw for Blob {
     fn draw(&self) { /* draw the blob */ }
 }
 
+impl Draw for u32 {
+    fn draw(&self) { /* draw the u32 */ }
+}
+
 fn main() {
     // Each Dst stores a `dyn Draw` up to a fixed capacity, which is set via `max_size` to
     // the size of the biggest trait object we're using.
@@ -50,6 +54,7 @@ fn main() {
             width: 20,
             name: "PANIC BUTTON",
         }),
+        Dst::new(1u32),   // u32 is smaller than the fixed capacity we specified, so we can use it
         // Dst::new(Blob([0; 100]))    This would not compile, because Blob doesn't fit in Dst
     ];
 
