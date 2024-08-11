@@ -23,6 +23,33 @@ use aligned::Aligned;
 
 pub use aligned::{Alignment, A1, A16, A2, A32, A4, A64, A8};
 
+/// Given multiple type names, return the size of the biggest type.
+///
+/// This can be used in const context. It is intended for computing the required size for [`Dst`].
+///
+/// ```
+/// # use core::fmt::Display;
+/// # use core::mem::{size_of, size_of_val};
+/// # use sized_dst::{max_size, Dst};
+/// // Dst data will be the size of f64
+/// let dst = Dst::<dyn Display, { max_size!(u32, f64, bool) }>::new(12.0);
+/// assert!(size_of_val(&dst) > size_of::<f64>());
+/// ```
+#[macro_export]
+macro_rules! max_size {
+    ($first:ty $(, $other:ty)* $(,)?) => {{
+        #[allow(unused_mut)]
+        let mut max = core::mem::size_of::<$first>();
+        $(
+            let next = core::mem::size_of::<$other>();
+            if next > max {
+                max = next;
+            }
+        )*
+        max
+    }};
+}
+
 /// Sized object that stores a DST object, such as a trait object, on the stack.
 ///
 /// The layout of `DstBase` consists of the DST metadata (for trait objects, this is the vtable
@@ -368,5 +395,11 @@ mod tests {
 
         let obj = Dst::<dyn Any, 32>::new(Box::new(2u32));
         assert!(obj.downcast::<String>().is_none());
+    }
+
+    #[test]
+    fn max_size() {
+        assert_eq!(size_of::<[u8; max_size!(String)]>(), size_of::<String>());
+        assert_eq!(size_of::<[u8; max_size!(u8, u32, u64)]>(), size_of::<u64>());
     }
 }
