@@ -1,0 +1,33 @@
+name: test suite
+on: [push, pull_request]
+
+jobs:
+  check-and-test:
+    name: check and test workspace
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - run: cargo clippy -- -Dwarnings
+      - run: cargo clippy --tests -- -Dwarnings
+      - run: cargo test
+
+  miri:
+    name: miri testing on unsafe code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: miri
+      - run: cargo miri test
+
+  documentation:
+    name: document released packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: RUSTDOCFLAGS="-D warnings" cargo doc
