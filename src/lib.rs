@@ -389,4 +389,22 @@ mod tests {
         assert_eq!(size_of::<[u8; max_size!(String)]>(), size_of::<String>());
         assert_eq!(size_of::<[u8; max_size!(u8, u32, u64)]>(), size_of::<u64>());
     }
+
+    #[test]
+    fn custom_dst() {
+        struct CustomDyn<T: ?Sized> {
+            label: u32,
+            data: T,
+        }
+
+        let val = CustomDyn {
+            label: 1,
+            data: Box::new(12u64),
+        };
+        let mut obj = Dst::<CustomDyn<dyn ToString>, 16>::new(val);
+        assert_eq!(obj.label, 1);
+        obj.label = 10;
+        assert_eq!(obj.label, 10);
+        assert_eq!(obj.data.to_string(), "12");
+    }
 }

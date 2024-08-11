@@ -9,4 +9,5 @@ fn ui() {
     t.compile_fail("tests/ui/align-fail.rs");
     t.compile_fail("tests/ui/size-fail.rs");
     t.compile_fail("tests/ui/borrowchk-fail.rs");
+    t.compile_fail("tests/ui/custom-dst-fail.rs");
 }
