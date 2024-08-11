@@ -1,6 +1,6 @@
 # sized-dst
 
-This crate provides `Dst`, an owned container for dynamically-sized types (DSTs) that's backed by static memory. The main use-case is *owned trait objects without heap allocation*. You can think of it as a stack-only version of `Box<dyn Trait>`.
+This crate provides `Dst`, an owned container for dynamically-sized types (DSTs) that's backed by *inline* memory. The main use-case is *owned trait objects without heap allocation*. You can think of it as a stack-only version of `Box<dyn Trait>`.
 
 This crate currently requires **nightly**, since it relies on `Unsize` and pointer metadata.
 

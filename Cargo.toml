@@ -2,7 +2,7 @@
 name = "sized-dst"
 version = "0.1.0"
 edition = "2021"
-description = "Owned container for dynamically-sized types backed by static memory"
+description = "Owned container for dynamically-sized types backed by inline memory"
 authors = ["Yuhan Lin <yuhanliin@protonmail.com>"]
 keywords = ["no_std", "trait-object", "traits"]
 categories = ["no-std::no-alloc", "data-structures", "rust-patterns"]
