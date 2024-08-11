@@ -1,27 +1,27 @@
-error[E0080]: evaluation of `sized_dst::DstBase::<dyn std::fmt::Debug, sized_dst::A8, 4>::new::<[u8; 17]>::{constant#0}` failed
- --> src/lib.rs
+error[E0080]: evaluation of `sized_dst::assert::const_assert::<[u8; 17], sized_dst::A8, 4>::{constant#0}` failed
+ --> src/assert.rs
   |
-  | /             assert!(
-  | |                 size_of::<T>() <= N,
-  | |                 "Value must fit within the stack object"
-  | |             );
-  | |_____________^ the evaluated program panicked at 'Value must fit within the stack object', $DIR/src/lib.rs:81:13
+  | /         assert!(
+  | |             size_of::<T>() <= N,
+  | |             "Value must fit within the stack object"
+  | |         );
+  | |_________^ the evaluated program panicked at 'Value must fit within the stack object', $DIR/src/assert.rs:5:9
   |
   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `assert` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 note: erroneous constant encountered
-  --> src/lib.rs
-   |
-   | /         const {
-   | |             assert!(
-   | |                 size_of::<T>() <= N,
-   | |                 "Value must fit within the stack object"
-   | |             );
-   | |         }
-   | |_________^
-
-note: the above error was encountered while instantiating `fn sized_dst::DstBase::<dyn std::fmt::Debug, sized_dst::A8, 4>::new::<[u8; 17]>`
- --> tests/ui/size-fail.rs:4:5
+ --> src/assert.rs
   |
-4 |     DstA8::<dyn std::fmt::Debug, 4>::new([0u8; 17]);
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  | /     const {
+  | |         assert!(
+  | |             size_of::<T>() <= N,
+  | |             "Value must fit within the stack object"
+  | |         );
+  | |     }
+  | |_____^
+
+note: the above error was encountered while instantiating `fn sized_dst::assert::const_assert::<[u8; 17], sized_dst::A8, 4>`
+   --> src/lib.rs
+    |
+    |         assert::const_assert::<T, A, N>();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

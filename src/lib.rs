@@ -9,6 +9,7 @@
 #![feature(ptr_metadata, unsize, pin_deref_mut)]
 #![warn(missing_docs)]
 
+mod assert;
 mod trait_impls;
 
 use core::{
@@ -108,18 +109,7 @@ impl<D: ?Sized, A: Alignment, const N: usize> DstBase<D, A, N> {
     /// The size and alignment of `value` are checked against the `DstBase` parameters at
     /// **compile-time**, resulting in a compile error if `value` doesn't fit.
     pub fn new<T: Unsize<D>>(value: T) -> Self {
-        const {
-            assert!(
-                size_of::<T>() <= N,
-                "Value must fit within the stack object"
-            );
-        }
-        const {
-            assert!(
-                align_of::<T>() <= align_of::<A>(),
-                "Value alignment requirements must not exceed that of the stack object"
-            );
-        }
+        assert::const_assert::<T, A, N>();
 
         // SAFETY:
         // - `val_size` is the size of `value`, as expected by the function.
@@ -251,16 +241,13 @@ pub type DstA32<D, const N: usize> = DstBase<D, A32, N>;
 pub type DstA64<D, const N: usize> = DstBase<D, A64, N>;
 
 #[cfg(target_pointer_width = "16")]
-/// [`DstBase`] aligned to the target word boundary. This is almost always the alignment that you
-/// want to use.
+/// [`DstBase`] aligned to the target word boundary. This is almost always what you want to use.
 pub type Dst<D, const N: usize> = DstA2<D, N>;
 #[cfg(target_pointer_width = "32")]
-/// [`DstBase`] aligned to the target word boundary. This is almost always the alignment that you
-/// want to use.
+/// [`DstBase`] aligned to the target word boundary. This is almost always what you want to use.
 pub type Dst<D, const N: usize> = DstA4<D, N>;
 #[cfg(target_pointer_width = "64")]
-/// [`DstBase`] aligned to the target word boundary. This is almost always the alignment that you
-/// want to use.
+/// [`DstBase`] aligned to the target word boundary. This is almost always what you want to use.
 pub type Dst<D, const N: usize> = DstA8<D, N>;
 
 #[cfg(test)]

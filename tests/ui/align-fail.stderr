@@ -1,27 +1,27 @@
-error[E0080]: evaluation of `sized_dst::DstBase::<dyn std::fmt::Debug, sized_dst::A8, 32>::new::<Align32>::{constant#1}` failed
- --> src/lib.rs
+error[E0080]: evaluation of `sized_dst::assert::const_assert::<Align32, sized_dst::A8, 32>::{constant#1}` failed
+ --> src/assert.rs
   |
-  | /             assert!(
-  | |                 align_of::<T>() <= align_of::<A>(),
-  | |                 "Value alignment requirements must not exceed that of the stack object"
-  | |             );
-  | |_____________^ the evaluated program panicked at 'Value alignment requirements must not exceed that of the stack object', $DIR/src/lib.rs:87:13
+  | /         assert!(
+  | |             align_of::<T>() <= align_of::<A>(),
+  | |             "Value alignment requirements must not exceed that of the stack object"
+  | |         );
+  | |_________^ the evaluated program panicked at 'Value alignment requirements must not exceed that of the stack object', $DIR/src/assert.rs:11:9
   |
   = note: this error originates in the macro `$crate::panic::panic_2021` which comes from the expansion of the macro `assert` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 note: erroneous constant encountered
-  --> src/lib.rs
+  --> src/assert.rs
    |
-   | /         const {
-   | |             assert!(
-   | |                 align_of::<T>() <= align_of::<A>(),
-   | |                 "Value alignment requirements must not exceed that of the stack object"
-   | |             );
-   | |         }
-   | |_________^
+   | /     const {
+   | |         assert!(
+   | |             align_of::<T>() <= align_of::<A>(),
+   | |             "Value alignment requirements must not exceed that of the stack object"
+   | |         );
+   | |     }
+   | |_____^
 
-note: the above error was encountered while instantiating `fn sized_dst::DstBase::<dyn std::fmt::Debug, sized_dst::A8, 32>::new::<Align32>`
- --> tests/ui/align-fail.rs:8:5
-  |
-8 |     DstA8::<dyn std::fmt::Debug, 32>::new(Align32(1));
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: the above error was encountered while instantiating `fn sized_dst::assert::const_assert::<Align32, sized_dst::A8, 32>`
+   --> src/lib.rs
+    |
+    |         assert::const_assert::<T, A, N>();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
