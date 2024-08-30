@@ -1,6 +1,6 @@
 // Put const asserts into separate file so that line numbers in error messages are consistent.
 // Otherwise trybuild tests will fail every time lib.rs is changed.
-pub(crate) const fn const_assert<T, A, const N: usize>() {
+pub(crate) const fn check_size_and_align_of_dst<T, A, const N: usize>() {
     const {
         assert!(
             size_of::<T>() <= N,

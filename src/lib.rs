@@ -109,7 +109,7 @@ impl<D: ?Sized, A: Alignment, const N: usize> DstBase<D, A, N> {
     /// The size and alignment of `value` are checked against the `DstBase` parameters at
     /// **compile-time**, resulting in a compile error if `value` doesn't fit.
     pub fn new<T: Unsize<D>>(value: T) -> Self {
-        assert::const_assert::<T, A, N>();
+        assert::check_size_and_align_of_dst::<T, A, N>();
 
         // SAFETY:
         // - `val_size` is the size of `value`, as expected by the function.

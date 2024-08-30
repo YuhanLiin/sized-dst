@@ -1,4 +1,4 @@
-error[E0080]: evaluation of `sized_dst::assert::const_assert::<Align32, sized_dst::A8, 32>::{constant#1}` failed
+error[E0080]: evaluation of `sized_dst::assert::check_size_and_align_of_dst::<Align32, sized_dst::A8, 32>::{constant#1}` failed
  --> src/assert.rs
   |
   | /         assert!(
@@ -20,8 +20,8 @@ note: erroneous constant encountered
    | |     }
    | |_____^
 
-note: the above error was encountered while instantiating `fn sized_dst::assert::const_assert::<Align32, sized_dst::A8, 32>`
+note: the above error was encountered while instantiating `fn sized_dst::assert::check_size_and_align_of_dst::<Align32, sized_dst::A8, 32>`
    --> src/lib.rs
     |
-    |         assert::const_assert::<T, A, N>();
-    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |         assert::check_size_and_align_of_dst::<T, A, N>();
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
