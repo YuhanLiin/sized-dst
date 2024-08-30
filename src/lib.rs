@@ -247,8 +247,25 @@ pub type Dst<D, const N: usize> = DstA2<D, N>;
 /// [`DstBase`] aligned to the target word boundary. This is almost always what you want to use.
 pub type Dst<D, const N: usize> = DstA4<D, N>;
 #[cfg(target_pointer_width = "64")]
-/// [`DstBase`] aligned to the target word boundary. This is almost always what you want to use.
+/// [`DstBase`] with the alignment of `usize`. This is almost always what you want to use.
 pub type Dst<D, const N: usize> = DstA8<D, N>;
+
+/// [`Dst`] with the size and alignment of `usize`. This can be used to represent both `dyn`
+/// pointers and _`dyn` objects smaller than a pointer_.
+///
+/// ```
+/// # use std::fmt::Debug;
+/// # use sized_dst::DstPtr;
+/// fn print(ptr: DstPtr<dyn Debug + '_>) {
+///     println!("{ptr:?}");
+/// }
+///
+/// print(DstPtr::new(1u8));
+/// print(DstPtr::new(&1u8));
+/// print(DstPtr::new(&mut 1u8));
+/// print(DstPtr::new(Box::new(1u8)));
+/// ```
+pub type DstPtr<D> = Dst<D, { size_of::<usize>() }>;
 
 #[cfg(test)]
 mod tests {
@@ -406,5 +423,18 @@ mod tests {
         obj.label = 10;
         assert_eq!(obj.label, 10);
         assert_eq!(obj.data.to_string(), "12");
+    }
+
+    #[allow(clippy::needless_borrows_for_generic_args)]
+    #[test]
+    fn dst_ptr() {
+        fn assert(ptr: DstPtr<dyn ToString + '_>) {
+            assert_eq!(ptr.to_string(), "1");
+        }
+
+        assert(DstPtr::new(1u8));
+        assert(DstPtr::new(&1u32));
+        assert(DstPtr::new(&mut 1u32));
+        assert(DstPtr::new(Box::new(1u32)));
     }
 }
