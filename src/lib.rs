@@ -13,7 +13,6 @@ mod assert;
 mod trait_impls;
 
 use core::{
-    any::Any,
     marker::{PhantomData, Unsize},
     mem::{size_of, MaybeUninit},
     ops::{Deref, DerefMut},
@@ -169,29 +168,6 @@ impl<D: ?Sized, A: Alignment, const N: usize> DstBase<D, A, N> {
         from_raw_parts_mut(self.obj_bytes.as_mut_ptr(), self.metadata)
     }
 }
-
-macro_rules! downcast_impl {
-    ($dst:ty) => {
-        impl<A: Alignment, const N: usize> DstBase<$dst, A, N> {
-            /// Attempt to downcast to a concrete type
-            pub fn downcast<T: Any>(self) -> Option<T> {
-                if let Some(val_ref) = self.deref().downcast_ref() {
-                    // SAFETY:
-                    // - val_ref is a valid reference to T, so we're reading a valid value of T for sure.
-                    // - Call mem::forget on self so we don't drop T twice.
-                    let val = unsafe { core::ptr::read(val_ref as *const T) };
-                    core::mem::forget(self);
-                    Some(val)
-                } else {
-                    None
-                }
-            }
-        }
-    };
-}
-downcast_impl!(dyn Any);
-downcast_impl!(dyn Any + Send);
-downcast_impl!(dyn Any + Send + Sync);
 
 impl<D: ?Sized, A: Alignment, const N: usize> Drop for DstBase<D, A, N> {
     fn drop(&mut self) {
@@ -376,29 +352,6 @@ mod tests {
     fn align32() {
         let obj = DstA32::<dyn std::fmt::Debug, 32>::new(aligned::Aligned::<A32, _>(0));
         assert_eq!(align_of_val(&obj.obj_bytes), 32);
-    }
-
-    #[test]
-    fn any_replace() {
-        let mut obj = Dst::<dyn Any, 32>::new(String::from("xyz"));
-        let ref_mut = obj.downcast_mut::<String>().unwrap();
-        assert_eq!(ref_mut, "xyz");
-
-        // Use a downcasted reference to replace the inner object without changing the metadata.
-        // The metadata should still be valid because the concrete type of the replacement object
-        // is the exact same as the original object, so future from_raw_parts calls are still sound.
-        *ref_mut = String::from("abc");
-        assert_eq!(obj.downcast_ref::<String>().unwrap(), "abc");
-    }
-
-    #[test]
-    fn downcast() {
-        let obj = Dst::<dyn Any, 32>::new(Box::new(2u32));
-        let val: Box<u32> = obj.downcast::<Box<u32>>().unwrap();
-        assert_eq!(*val, 2);
-
-        let obj = Dst::<dyn Any, 32>::new(Box::new(2u32));
-        assert!(obj.downcast::<String>().is_none());
     }
 
     #[test]

@@ -1,4 +1,5 @@
 use core::{
+    any::Any,
     borrow::{Borrow, BorrowMut},
     cmp::Ordering,
     error::Error,
@@ -256,6 +257,32 @@ impl<D: ?Sized + Error, A: Alignment, const N: usize> Error for DstBase<D, A, N>
     }
 }
 
+macro_rules! downcast_impl {
+    ($trait:ident $(+ $marker:ident)*) => {
+        impl<A: Alignment, const N: usize> DstBase<dyn $trait $(+ $marker)*, A, N> {
+            /// Attempt to downcast to a concrete type
+            pub fn downcast<T: $trait + 'static>(self) -> Option<T> {
+                if let Some(val_ref) = self.deref().downcast_ref() {
+                    // SAFETY:
+                    // - val_ref is a valid reference to T, so we're reading a valid value of T for sure.
+                    // - Call mem::forget on self so we don't drop T twice.
+                    let val = unsafe { core::ptr::read(val_ref as *const T) };
+                    core::mem::forget(self);
+                    Some(val)
+                } else {
+                    None
+                }
+            }
+        }
+    };
+}
+downcast_impl!(Any);
+downcast_impl!(Any + Send);
+downcast_impl!(Any + Send + Sync);
+downcast_impl!(Error);
+downcast_impl!(Error + Send);
+downcast_impl!(Error + Send + Sync);
+
 #[cfg(feature = "std")]
 impl<D: ?Sized + Read, A: Alignment, const N: usize> Read for DstBase<D, A, N> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -408,5 +435,32 @@ mod tests {
         assert_eq!(dst.next_back(), Some(6));
         assert_eq!(dst.nth_back(0), Some(5));
         assert_eq!(dst.next(), None);
+    }
+
+    #[test]
+    fn any_replace() {
+        let mut obj = Dst::<dyn Any, 32>::new(String::from("xyz"));
+        let ref_mut = obj.downcast_mut::<String>().unwrap();
+        assert_eq!(ref_mut, "xyz");
+
+        // Use a downcasted reference to replace the inner object without changing the metadata.
+        // The metadata should still be valid because the concrete type of the replacement object
+        // is the exact same as the original object, so future from_raw_parts calls are still sound.
+        *ref_mut = String::from("abc");
+        assert_eq!(obj.downcast_ref::<String>().unwrap(), "abc");
+    }
+
+    #[test]
+    fn downcast() {
+        let obj = Dst::<dyn Any, 32>::new(Box::new(2u32));
+        let val = obj.downcast::<Box<u32>>().unwrap();
+        assert_eq!(*val, 2);
+
+        let obj = Dst::<dyn Any, 32>::new(Box::new(2u32));
+        assert!(obj.downcast::<String>().is_none());
+
+        let obj = Dst::<dyn Error, 32>::new(std::io::Error::from(std::io::ErrorKind::NotFound));
+        let val = obj.downcast::<std::io::Error>().unwrap();
+        assert_eq!(val.kind(), std::io::ErrorKind::NotFound);
     }
 }
